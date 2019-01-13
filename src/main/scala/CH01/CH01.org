@@ -1,0 +1,81 @@
+#+TITLE: Chapter 1: What is functional programming?
+#+OPTIONS: toc:nil
+
+* Notes
+
+** Functional programming
+
+*** What is it?
+
+In functional programming, we construct our entire programs using only pure functions. In other words, there are no side effects.
+It can be hard to imagine writing useful programs like this, however, the point is that functional programming is a restriction on 
+HOW we write programs and not on WHAT programs can express.
+
+*** What are the benefits?
+
+Programming with pure functions drastically increases the modularity of our programs. This makes them easier to test, reuse, parallelize, generalize, and reason about.
+Pure functions are, in general, also less prone to bugs.
+
+*Example of a program containing side effects:*
+
+#+BEGIN_SRC scala
+class Cafe {
+
+    def buyCoffee(cc: CreditCard): Coffee = {
+        val cup = new Coffee()
+	cc.Charge(cup.price)   // [1]
+
+	cup
+    }
+
+}
+#+END_SRC
+
+The line at =[1]= is an example of a side effect. Charging a credit card involves some interaction with the outside world, 
+but our function merely returns a Coffee and these other actions are happening on the side, hence the term “side effect.”
+This side effect makes our code kind of tricky to test.
+
+*** Removing the side effects
+
+The functional solution is to eliminate side effects and have =buyCoffee= return the charge as a value in addition to returning the =Coffee=.
+
+#+BEGIN_SRC scala
+class Cafe {
+    def buyCoffee(cc: CreditCard): (Coffee, Charge) = {
+        val cup = new Coffee()
+
+	(cup, Charge(cc, cup.price))
+    }
+}
+#+END_SRC
+
+We've introduced =Charge= here, let's look at the definition:
+
+#+BEGIN_SRC scala
+case class Charge(cc: CreditCard, amount: Double) {
+    def combine(other: Charge): Charge = {
+        if (cc == other.cc)
+	    Charge(cc, amount + other.amount)
+	else
+	    throw new Exception("Can't combine charge to different cards")
+    }
+}
+#+END_SRC
+
+We can now easily create an implementation of =buyCoffees=:
+
+#+BEGIN_SRC scala
+class Cafe {
+    def buyCoffee(cc: CreditCard): (Coffee, Charge) = {
+        val cup = new Coffee()
+
+	(cup, Charge(cc, cup.price))
+    }
+
+    def buyCoffees(cc: CreditCard, n: Int): (List[Coffee], Charge) = {
+        val purchases: List[(Coffiee, Charge)] = List.fill(n)(buyCoffee(cc))
+	val (coffees, charges) = purchases.unzip
+	(coffees, charges.reduce((c1, c2) => c1.combine(c2)))
+    }
+}
+#+END_SRC
